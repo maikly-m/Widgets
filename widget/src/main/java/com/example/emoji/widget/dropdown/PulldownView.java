@@ -1,6 +1,8 @@
 package com.example.emoji.widget.dropdown;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.widget.ViewDragHelper;
@@ -40,6 +42,12 @@ public class PulldownView extends FrameLayout {
             } else if (releasedChild == mContentView){
                 if (mTempTop > mContentView.getMeasuredHeight()*mReleaseHeightCoe){
                     mViewDragHelper.settleCapturedViewAt(0, mContentView.getMeasuredHeight());
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run () {
+                            showContentView();
+                        }
+                    }, 2000);
                 } else{
                     mViewDragHelper.settleCapturedViewAt(0, 0);
                 }
@@ -73,7 +81,6 @@ public class PulldownView extends FrameLayout {
             // top 就是child的margintop
             // Log.e(TAG, "clampViewPositionVertical: top "+top);
             // 限定位置
-
             if (child == mTopView){
                 if (top < -mTopView.getMeasuredHeight() * (1- mHeightCoe)){
                     top = (int) (-mTopView.getMeasuredHeight() * (1- mHeightCoe));
@@ -87,6 +94,7 @@ public class PulldownView extends FrameLayout {
                     top = mContentView.getMeasuredHeight();
                 }
             }
+
             //阈值
             mTempTop = top;
             return top;
@@ -99,6 +107,7 @@ public class PulldownView extends FrameLayout {
     private ChildCallback mChildCallback;
 
     private float mReleaseHeightCoe = 0.4f;
+    private Handler mHandler = new Handler(Looper.myLooper());
 
     public PulldownView (@NonNull Context context) {
         this(context, null);
@@ -180,6 +189,26 @@ public class PulldownView extends FrameLayout {
         if (mViewDragHelper != null && mViewDragHelper.continueSettling(true)){
             invalidate();
         }
+    }
+
+    public void showContentView(){
+        // 复位操作
+        int[] parent = new int[2];
+        getLocationInWindow(parent);
+
+        int[] topview = new int[2];
+        mTopView.getLocationInWindow(topview);
+
+        if (parent[1] == topview[1]){
+            //topview完全显示
+            mTopView.layout(0, (int) ( - mTopView.getMeasuredHeight() * (1- mHeightCoe)),
+                    mTopView.getMeasuredWidth(),
+                    (int) ( mTopView.getMeasuredHeight() * mHeightCoe));
+
+            mContentView.layout(0, 0,
+                    mContentView.getMeasuredWidth(), mContentView.getMeasuredHeight());
+        }
+
     }
 
     public void setChildCallback (ChildCallback childCallback){

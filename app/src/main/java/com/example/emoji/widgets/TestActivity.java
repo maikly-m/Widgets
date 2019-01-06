@@ -39,8 +39,16 @@ public class TestActivity extends AppCompatActivity{
         RelativeLayout content = (RelativeLayout) View.inflate(this, R.layout.pull_down_view_content, null);
 
         final PulldownView pulldownView = DelegateView.getDelegateView().createPulldownView(this, top, content);
+        pulldownView.setHeightCoe(0.6f);
+        pulldownView.setReleaseHeightCoe(0.2f);
         setContentView(pulldownView);
 
+//        pulldownView.mTopView.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick (View v) {
+//                pulldownView.showContentView();
+//            }
+//        });
         pulldownView.setChildCallback(new PulldownView.ChildCallback() {
             @Override
             public void dragHeight (View dragView, int h) {
