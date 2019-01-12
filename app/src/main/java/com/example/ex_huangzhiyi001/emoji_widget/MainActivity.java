@@ -1,4 +1,4 @@
-package com.example.emoji.widgets;
+package com.example.ex_huangzhiyi001.emoji_widget;
 
 import android.content.Intent;
 import android.graphics.Color;
@@ -11,9 +11,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-/**
- * @author emoji
- */
 public class MainActivity extends AppCompatActivity {
 
     private TextView mTvList;
@@ -25,35 +22,36 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initView();
+
     }
 
     private void initView () {
         mTvList = (TextView) findViewById(R.id.tv_list);
         mRvList = (RecyclerView) findViewById(R.id.rv_list);
+
+        mStrings = new String[]{"PulldownView", "FlingOutView", "FlingCardView", "CrushCardView","others"};
         mRvList.setLayoutManager(new LinearLayoutManager(this));
-        mStrings = new String[]{"PullDownView", "others"};
         mRvList.setAdapter(new RecyclerView.Adapter() {
             @NonNull
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder (@NonNull ViewGroup viewGroup, int i) {
-                final TextView textView = new TextView(MainActivity.this);
-                textView.setTextColor(Color.BLUE);
-                textView.setTextSize(18);
-                textView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick (View v) {
-                        Intent intent = new Intent(MainActivity.this, TestActivity.class);
-                        intent.putExtra("view", textView.getText());
-                        startActivity(intent);
-                    }
-                });
+                TextView textView = new TextView(MainActivity.this);
+                textView.setTextSize(20);
+                textView.setTextColor(Color.GREEN);
                 return new RecyclerView.ViewHolder(textView){};
             }
 
             @Override
-            public void onBindViewHolder (@NonNull RecyclerView.ViewHolder viewHolder, int i) {
-                TextView itemView = (TextView) viewHolder.itemView;
-                itemView.setText(mStrings[i]);
+            public void onBindViewHolder (@NonNull RecyclerView.ViewHolder viewHolder, final int i) {
+                ((TextView)viewHolder.itemView).setText(mStrings[i]);
+                ((TextView)viewHolder.itemView).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick (View v) {
+                        Intent intent = new Intent(MainActivity.this, TestActivity.class);
+                        intent.putExtra("view", mStrings[i]);
+                        startActivity(intent);
+                    }
+                });
             }
 
             @Override

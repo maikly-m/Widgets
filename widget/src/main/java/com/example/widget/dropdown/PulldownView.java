@@ -1,4 +1,4 @@
-package com.example.emoji.widget.dropdown;
+package com.example.widget.dropdown;
 
 import android.content.Context;
 import android.os.Handler;
@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -42,12 +43,12 @@ public class PulldownView extends FrameLayout {
             } else if (releasedChild == mContentView){
                 if (mTempTop > mContentView.getMeasuredHeight()*mReleaseHeightCoe){
                     mViewDragHelper.settleCapturedViewAt(0, mContentView.getMeasuredHeight());
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run () {
-                            showContentView();
-                        }
-                    }, 2000);
+//                    mHandler.postDelayed(new Runnable() {
+//                        @Override
+//                        public void run () {
+//                            showContentView();
+//                        }
+//                    }, 2000);
                 } else{
                     mViewDragHelper.settleCapturedViewAt(0, 0);
                 }
@@ -108,6 +109,8 @@ public class PulldownView extends FrameLayout {
 
     private float mReleaseHeightCoe = 0.4f;
     private Handler mHandler = new Handler(Looper.myLooper());
+    private float mDownX;
+    private float mDownY;
 
     public PulldownView (@NonNull Context context) {
         this(context, null);
@@ -160,13 +163,50 @@ public class PulldownView extends FrameLayout {
     }
 
     @Override
-    public boolean onInterceptHoverEvent (MotionEvent event) {
-        return mViewDragHelper.shouldInterceptTouchEvent(event);
-//        return super.onInterceptHoverEvent(event);
+    public boolean onInterceptTouchEvent (MotionEvent ev) {
+//        Log.e(TAG, "onInterceptTouchEvent: ev " +ev.getAction());
+//        boolean flag = false;
+//        mViewDragHelper.shouldInterceptTouchEvent(ev);
+//        switch (ev.getAction()){
+//        case MotionEvent.ACTION_DOWN:
+//            mDownX = ev.getX();
+//            mDownY = ev.getY();
+//            flag = false;
+//            break;
+//        case MotionEvent.ACTION_MOVE:
+//            float x = ev.getX();
+//            float y = ev.getY();
+//            float mX = Math.abs(x - mDownX);
+//            float mY = Math.abs(y - mDownY);
+//            Log.e(TAG, "onInterceptTouchEvent: mX "+mX);
+//            Log.e(TAG, "onInterceptTouchEvent: mY "+mY);
+//            if (mX > 20 || mY > 20){
+//                // 滑动
+//                flag = true;
+//            }else {
+//                // 点击
+//                flag = false;
+//            }
+//            break;
+//        case MotionEvent.ACTION_UP:
+//            flag = false;
+//            break;
+//        default:
+//            break;
+//        }
+//        return flag;
+        return mViewDragHelper.shouldInterceptTouchEvent(ev);
+//        return super.onInterceptTouchEvent(ev);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent (MotionEvent ev) {
+        return super.dispatchTouchEvent(ev);
     }
 
     @Override
     public boolean onTouchEvent (MotionEvent event) {
+        Log.e(TAG, "onTouchEvent: " );
         mViewDragHelper.processTouchEvent(event);
         return true;
 //        return super.onTouchEvent(event);
@@ -192,14 +232,8 @@ public class PulldownView extends FrameLayout {
     }
 
     public void showContentView(){
-        // 复位操作
-        int[] parent = new int[2];
-        getLocationInWindow(parent);
-
-        int[] topview = new int[2];
-        mTopView.getLocationInWindow(topview);
-
-        if (parent[1] == topview[1]){
+        //复位操作
+        if (getTop() == mTopView.getTop()){
             //topview完全显示
             mTopView.layout(0, (int) ( - mTopView.getMeasuredHeight() * (1- mHeightCoe)),
                     mTopView.getMeasuredWidth(),

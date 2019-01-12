@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                                             android:layout_width="match_parent"
+                                             android:layout_height="match_parent"
+                android:background="@drawable/card_child_bg_red"
+    >
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+        <TextView
+            android:padding="50dp"
+            android:id="@+id/tv_child_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_orange_light"
+            android:textSize="30sp"
+            android:gravity="center"
+            android:text="id"/>
+        <TextView
+            android:layout_below="@id/tv_child_id"
+            android:padding="50dp"
+            android:id="@+id/tv_child_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_red_dark"
+            android:textSize="10sp"
+            android:gravity="center"
+            android:text="tv_child"/>
+    </RelativeLayout >
+</RelativeLayout >

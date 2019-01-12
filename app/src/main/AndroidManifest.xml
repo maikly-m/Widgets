@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest package="com.example.emoji.widgets"
+<manifest package="com.example.ex_huangzhiyi001.emoji_widget"
           xmlns:android="http://schemas.android.com/apk/res/android" >
 
     <application
