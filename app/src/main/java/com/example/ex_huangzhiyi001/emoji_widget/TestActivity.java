@@ -56,7 +56,7 @@ public class TestActivity extends AppCompatActivity {
     }
 
     private void setCrushCardView () {
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.test2);
         final CrushCardView crushCardView = DelegateView.getInstance().getCrushCardView(this, bitmap);
         setContentView(crushCardView);
         crushCardView.setOnClickListener(new View.OnClickListener() {

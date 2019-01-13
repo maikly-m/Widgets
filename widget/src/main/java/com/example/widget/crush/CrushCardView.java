@@ -3,9 +3,12 @@ package com.example.widget.crush;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -15,9 +18,8 @@ import android.view.SurfaceView;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Random;
+import java.util.Stack;
 
 /**
  * @author ex-huangzhiyi001
@@ -34,14 +36,28 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
     private int mMeasuredHeight;
     private boolean isCreated = false;
     private Thread mThread;
-    private ExecutorService mExecutorService = Executors.newSingleThreadExecutor();
-    private Future<?> mSubmit;
+//    private ExecutorService mExecutorService = Executors.newSingleThreadExecutor();
+//    private Future<?> mSubmit;
     private Matrix mMatrix;
-    private ArrayList<Integer> mFirstPath;
-    private final int mDrawLoop = 5;
-    private int mCurrDrawLoop = 0;
-    private int pathInteger = 0;
-    private Iterator<Integer> mFirstIterator;
+    private int mBitmapLeft;
+    private int mBitmapTop;
+    private int mOffX = 0;//x偏移距离
+    private int mPerOffX = 20;// 每次移动的距离
+    private final int mFirstTempXMask = 15;
+    private int mFirstTempX = 1 << mFirstTempXMask;//16bit 携带方向和位移信息,高位最前面是1表示方向向左，是0表示方向向右
+    private int mTempXCycleCount = 0;
+    private final int mXCycleCount = 10;//x循环总次数
+    private int mScaleAllCount;//缩放次数
+    private int mScaleCount = 0;//缩放次数
+    private static final float g = 0.04f;// 二次函数系数
+    private final int mCrushCount = 25;//炸开的次数
+    private final int maxPerExplode = 25;//每次炸开时的最大值
+    private int mTempCrushCount = 0;//次数
+    private ArrayList<ArrayList<ExplodeBean>> mExplodeBeans = new ArrayList<>();//所有炸开的数据集合
+    private Stack<ExplodeBean> mTempExplodeBeans = new Stack<>();//缓存
+    private Random mRandom;
+    private ArrayList<Integer>  mColorArrayList = new ArrayList<>();;
+
 
     public CrushCardView (Context context) {
         this(context, null);
@@ -64,23 +80,26 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
 
         mPaint = new Paint();
         mPaint.setAntiAlias(true);
+        mPaint.setColor(Color.WHITE);
         mMatrix = new Matrix();
+        mRandom = new Random();
 
     }
 
     private void initData () {
-        mFirstPath = new ArrayList<>();
-        mFirstPath.add(-mBitmap.getWidth()/2);
-        for (int i = 0; i < 101; i++){
-            if (i % 2 == 0){
-                mFirstPath.add(mBitmap.getWidth() * 3/2);
-            }else {
-                mFirstPath.add(-mBitmap.getWidth() * 3/2);
+        //添加小球颜色集合
+        mColorArrayList.clear();
+        //获取9个就够了
+        int w = mBitmap.getWidth() / 3;
+        int h = mBitmap.getHeight() / 3;
+        for (int i = 0; i < 3; i++){
+            for (int j = 0; j < 3; j++){
+                int x = w * i + mRandom.nextInt(w);
+                int y = h * j + mRandom.nextInt(h);
+                int color = mBitmap.getPixel(x, y);
+                mColorArrayList.add(color);
             }
-
         }
-        mFirstPath.add(-mBitmap.getWidth()/2);
-
     }
 
     public void setCrushBitmap (Bitmap bitmap) {
@@ -97,28 +116,32 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
         if (mBitmap == null){
             return;
         }
-        initData();
-
-        int w = mMeasuredWidth - mBitmap.getWidth();
-        int h = mMeasuredHeight - mBitmap.getHeight();
-        Rect rect = new Rect(w / 2, h / 2,
-                w / 2 + mBitmap.getWidth(), h / 2 + mBitmap.getHeight());
-        //Log.e(TAG, "initStaticContent: rect " + rect);
+        mBitmapLeft = (mMeasuredWidth - mBitmap.getWidth()) / 2;
+        mBitmapTop = (mMeasuredHeight - mBitmap.getHeight()) / 2;
+        Rect rect = new Rect(mBitmapLeft, mBitmapTop,
+                mBitmapLeft + mBitmap.getWidth(), mBitmapTop + mBitmap.getHeight());
         Canvas canvas = mSurfaceHolder.lockCanvas(rect);
-        canvas.drawBitmap(mBitmap, w / 2, h / 2, mPaint);
+        canvas.drawBitmap(mBitmap, mBitmapLeft, mBitmapTop, mPaint);
         mSurfaceHolder.unlockCanvasAndPost(canvas);
+
+        initData();
     }
 
     public void startAnimation () {
         addAnimation();
-        if (mSubmit != null && !mSubmit.isDone()){
+        if (mThread != null && mThread.isAlive()){
             return;
         }
-        mSubmit = mExecutorService.submit(this);
+        mThread = new Thread(this);
+        mThread.start();
+//        if (mSubmit != null && !mSubmit.isDone()){
+//            return;
+//        }
+//        mSubmit = mExecutorService.submit(this);
     }
 
     private void addAnimation () {
-        Log.e(TAG, "addAnimation: start ");
+        //Log.e(TAG, "addAnimation: start ");
     }
 
     @Override
@@ -139,26 +162,33 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void surfaceCreated (SurfaceHolder holder) {
-        Log.e(TAG, "surfaceCreated: ");
+        //Log.e(TAG, "surfaceCreated: ");
         isCreated = true;
         initStaticContent();
     }
 
     @Override
     public void surfaceChanged (SurfaceHolder holder, int format, int width, int height) {
-        Log.e(TAG, "surfaceChanged: ");
+        //Log.e(TAG, "surfaceChanged: ");
     }
 
     @Override
     public void surfaceDestroyed (SurfaceHolder holder) {
-        Log.e(TAG, "surfaceDestroyed: ");
+        //Log.e(TAG, "surfaceDestroyed: ");
         isCreated = false;
     }
 
     @Override
     public void run () {
         Canvas canvas;
-        mFirstIterator = mFirstPath.iterator();
+        mOffX = mBitmap.getWidth() / 5;
+        mTempXCycleCount = 0;
+        mFirstTempX = (1 << 15) | mOffX;//初始化
+        mScaleCount = 0;
+        mScaleAllCount = mBitmap.getWidth() / (2 * 6);//6px 缩放一次
+        mTempCrushCount = 0;
+        mExplodeBeans.clear();
+
         int condition = 0;//阶段绘画标志, -1表示绘制完毕
         while (isCreated){
             long diffT = 0L;
@@ -176,6 +206,10 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
                     break;
                 }
                 //绘画
+                //清屏
+                mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+                canvas.drawPaint(mPaint);
+                mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
                 condition = dispatchToDraw(canvas, condition);
 
                 diffT = System.currentTimeMillis() - currT;
@@ -191,6 +225,7 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
             }
             mSurfaceHolder.unlockCanvasAndPost(canvas);
         }
+        Log.e(TAG, "run: over " );
     }
 
     private int dispatchToDraw (Canvas canvas, int condition) {
@@ -198,20 +233,16 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
         switch (condition){
         case 0:
             //开始
-            Log.e(TAG, "dispatchToDraw: 1" );
             flag = drawFirst(canvas) ? 1 : 0;
             break;
         case 1:
-            drawTwo(canvas);
-            flag = 2;
+            flag = drawTwo(canvas) ? 2 : 1;
             break;
         case 2:
-            drawThree(canvas);
-            flag = 3;
+            flag = drawThree(canvas) ? 3 : 2;
             break;
         case 3:
-            drawEnd(canvas);
-            flag = -1;
+            flag = drawEnd(canvas) ? -1 : 3;
             break;
         default:
             break;
@@ -219,48 +250,207 @@ public class CrushCardView extends SurfaceView implements SurfaceHolder.Callback
         return flag;
     }
 
-    private void drawEnd (Canvas canvas) {
-
-    }
-
-    private void drawThree (Canvas canvas) {
-
-    }
-
-    private void drawTwo (Canvas canvas) {
-
+    private boolean drawEnd (Canvas canvas) {
+        mPaint.setColor(Color.RED);
+        mPaint.setTextSize(60);
+        canvas.drawText(" The End! ", 400, 600, mPaint);
+        Log.e(TAG, "drawEnd: end " );
+        return true;
     }
 
     /**
+     * 炸开
+     *
+     * @param canvas
+     * @return true 表示绘制完成，继续下一个绘制
+     */
+    private boolean drawThree (Canvas canvas) {
+        // 炸开
+        boolean flag = false;
+        if (mTempCrushCount++ < mCrushCount){
+            //添加数据
+            int count = mRandom.nextInt(maxPerExplode);
+            ArrayList<ExplodeBean> beans = new ArrayList<>();
+            for (int i = 0; i < count; i++){
+                //ExplodeBean explodeBean = getCacheExplodeBeans();
+                ExplodeBean explodeBean = new ExplodeBean();
+                explodeBean.theta = mRandom.nextInt(180);//theta值
+                explodeBean.velocity = 1 + mRandom.nextFloat() * 8;//速度值
+                explodeBean.color = mColorArrayList.get(mRandom.nextInt(9));
+                explodeBean.size = 8 + mRandom.nextInt(15);
+                explodeBean.time = System.currentTimeMillis();
+                beans.add(explodeBean);
+            }
+            mExplodeBeans.add(beans);
+        }
+        if (mExplodeBeans.size() > 0){
+            //绘制
+            ExplodeBean explodeBean;
+            long l;
+            long diff;
+            float velocityToY;
+            float velocityToX;
+
+            Iterator<ArrayList<ExplodeBean>> eIterator = mExplodeBeans.iterator();
+            while (eIterator.hasNext()){
+                ArrayList<ExplodeBean> explodeBeans = eIterator.next();
+                if (explodeBeans.size() > 0){
+                    //处理元素 是否越过边界
+                    Iterator<ExplodeBean> bIterator = explodeBeans.iterator();
+                    while (bIterator.hasNext()){
+                        explodeBean = bIterator.next();
+                        l = System.currentTimeMillis();
+                        diff = l - explodeBean.time;
+                        velocityToX = (float) (explodeBean.velocity * Math.cos(explodeBean.theta));
+                        velocityToY = (float) (explodeBean.velocity * Math.sin(explodeBean.theta));
+                        int[] position = calPosition(diff, velocityToX, velocityToY);
+                        mPaint.setColor(explodeBean.color);
+                    //Log.e(TAG, "drawThree: position[0] "+position[0]);
+                    //Log.e(TAG, "drawThree: position[1] "+position[1]);
+                        if (Math.abs(position[0]) > 1080 || Math.abs(position[1]) > 1920){
+                            //移除
+                            bIterator.remove();
+                            //加入到缓存中,由于数据基本创建完毕了，后面回收的beans用不上...呃呃呃
+                            //addCacheExplodeBeans(explodeBean);
+                        }else {
+                            canvas.drawCircle(position[0], position[1], explodeBean.size, mPaint);
+                        }
+                    }
+                }
+                if (explodeBeans.size() == 0){
+                    //ExplodeBeans 为空，移除该容器
+                    eIterator.remove();
+                }
+            }
+
+        }else {
+            //清理数据完毕
+            mPaint.setColor(Color.WHITE);
+            return true;
+        }
+        return flag;
+    }
+
+    /**
+     * 加入缓存
+     * @param explodeBean
+     */
+    private void addCacheExplodeBeans (ExplodeBean explodeBean) {
+        mTempExplodeBeans.push(explodeBean);
+    }
+
+    /**
+     * 从缓存中获取，没有就new一个
+     * @return ExplodeBean
+     */
+    private ExplodeBean getCacheExplodeBeans (){
+        ExplodeBean explodeBean;
+        if (mTempExplodeBeans.empty()){
+            explodeBean = new ExplodeBean();
+        }else {
+            explodeBean = mTempExplodeBeans.pop();
+            if (explodeBean == null){
+                explodeBean = new ExplodeBean();
+            }else {
+            }
+        }
+        return explodeBean;
+    }
+
+    /**
+     * 计算抛物线的位置
+     *
+     * @param t millsecond
+     * @param velocityToX
+     * @param velocityToY
+     */
+    private int[] calPosition (long t, float velocityToX, float velocityToY) {
+        t = t / 20;
+        int[] p = new int[2];
+        p[0] = (int) (velocityToX * t) + getMeasuredWidth()/2;
+        //坐标倒过来
+        p[1] = -(int) (velocityToY * t - t * t * g) + getMeasuredHeight()/2;
+        return p;
+    }
+
+    /**
+     * 缩放
+     *
+     * @param canvas
+     * @return true 表示绘制完成，继续下一个绘制
+     */
+    private boolean drawTwo (Canvas canvas) {
+        // 缩小
+        boolean flag = false;
+        if (++mScaleCount > mScaleAllCount){
+            mMatrix.reset();
+            return true;
+        }
+        mMatrix.reset();
+        float scaleX = 1 - mScaleCount * 1f / mScaleAllCount;
+        float scaleY = 1 - mScaleCount * 1f / mScaleAllCount;
+        mMatrix.preTranslate(mBitmapLeft, mBitmapTop);
+        mMatrix.postScale(scaleX, scaleY, mBitmapLeft + mBitmap.getWidth() / 2, mBitmapTop + mBitmap.getHeight() / 2);
+        canvas.drawBitmap(mBitmap, mMatrix, mPaint);
+        return flag;
+    }
+
+    /**
+     * 左右晃动
      *
      * @param canvas
      * @return true 表示绘制完成，继续下一个绘制
      */
     private boolean drawFirst (Canvas canvas) {
         boolean flag = false;
-        if (mCurrDrawLoop == 0){
-            if (mFirstIterator.hasNext()){
-                pathInteger = mFirstIterator.next();
-            }else {
-                mMatrix.reset();
-                return true;
+        int direction = mFirstTempX >> mFirstTempXMask;
+        int mFirstX = mFirstTempX & ((1 << mFirstTempXMask) - 1);
+        if (direction == 0){
+            //向右
+            int d = 0;
+            mFirstX += mPerOffX;
+            if (mFirstX > mOffX * 2){
+                mTempXCycleCount++;
+                //换方向,向左
+                d = 1;
+                mFirstX = mOffX * 2;
             }
+            mFirstTempX = d << mFirstTempXMask | mFirstX;
+        } else{
+            //向左
+            mFirstX -= mPerOffX;
+            int d = 1;
+            if (mFirstX < 0){
+                mTempXCycleCount++;
+                //换方向,向右
+                d = 0;
+                mFirstX = 0;
+            }
+            mFirstTempX = d << mFirstTempXMask | mFirstX;
         }
-        Log.e(TAG, "drawFirst: pathInteger "+pathInteger );
+        if (mTempXCycleCount > mXCycleCount){
+            mMatrix.reset();
+            return true;
+        }
         //左右抖动
-        mMatrix.preTranslate(pathInteger*(mCurrDrawLoop/mDrawLoop), 0);
+        mMatrix.reset();
+        mMatrix.setTranslate(-mOffX + mBitmapLeft + mFirstX, mBitmapTop);
+        //Log.e(TAG, "drawFirst: mFirstX "+mFirstX);
         canvas.drawBitmap(mBitmap, mMatrix, mPaint);
-        if (mCurrDrawLoop > mDrawLoop){
-            mCurrDrawLoop = 0;
-        }else {
-            mCurrDrawLoop++;
-        }
         return false;
     }
 
     @Override
     public boolean onTouchEvent (MotionEvent event) {
         return super.onTouchEvent(event);
+    }
+
+    public class ExplodeBean {
+        int theta;
+        float velocity;
+        int color;
+        float size;
+        long time;
     }
 
     public interface CrushInterface {
